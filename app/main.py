@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from app.database import engine
 from app import models
+from app.database import engine
+from app import models
 # Si todavía no tenés código real en productos.py o ventas.py,
 # comentá estas líneas para que el servidor levante sin errores:
 from app.routes import productos, ventas 

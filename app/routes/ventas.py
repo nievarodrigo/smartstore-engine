@@ -1,43 +1,36 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app import models, schemas
+from app import schemas
+from app.services.venta_services import VentasService # Importamos el servicio centralizado
+from typing import List, Optional
+from datetime import datetime, date
 
 router = APIRouter(prefix="/ventas", tags=["Ventas"])
 
 @router.post("/registrar")
 def registrar_venta(pedido: schemas.VentaCreate, db: Session = Depends(get_db)):
-    # 1. Buscar producto (el "escaneo")
-    producto = db.query(models.Producto).filter(models.Producto.id == pedido.producto_id).first()
-    
-    if not producto:
-        raise HTTPException(status_code=404, detail="Producto no encontrado")
-    
-    # 2. Validar stock
-    if producto.stock < pedido.cantidad:
-        raise HTTPException(status_code=400, detail="Stock insuficiente")
-    
-    # 3. Calcular Total y Vuelto
-    total = producto.precio * pedido.cantidad
-    vuelto = pedido.pago_con - float(total)
-    
-    if vuelto < 0:
-        raise HTTPException(status_code=400, detail=f"Faltan {abs(vuelto)} para completar el pago")
-    
-    # 4. Registrar la venta en DB
-    nueva_venta = models.Venta(total=total, metodo_pago="efectivo")
-    db.add(nueva_venta)
-    db.flush() 
-    
-    # 5. Descontar stock
-    producto.stock -= pedido.cantidad
-    db.commit()
-    
-    return {
-        "mensaje": "Venta exitosa",
-        "producto": producto.nombre,
-        "total_a_pagar": total,
-        "pago_con": pedido.pago_con,
-        "vuelto": vuelto,
-        "stock_restante": producto.stock
-    }
+    # Eliminamos la lógica manual de aquí y usamos el Service.
+    # El Service es el que tiene el 'db.add(detalle)' que hace que todo funcione.
+    return VentasService.procesar_registro_venta(db, pedido)
+
+@router.get("/", response_model=List[schemas.VentaRead])
+def listar_ventas(
+    db: Session = Depends(get_db),
+    inicio: Optional[datetime] = None, 
+    fin: Optional[datetime] = None
+):
+    # Asegúrate de que el Service tenga definido el método obtener_historial
+    return VentasService.obtener_historial(db, fecha_inicio=inicio, fecha_fin=fin)
+
+@router.get("/stats/hoy", response_model=schemas.EstadisticasVentas)
+def kpis_del_dia(db: Session = Depends(get_db)):
+    return VentasService.obtener_kpis_dia(db)
+
+@router.get("/stats/grafico", response_model=List[schemas.RegistroGrafico])
+def datos_grafico(inicio: date, fin: date, db: Session = Depends(get_db)):
+    return VentasService.obtener_datos_grafico(db, inicio, fin)
+
+@router.get("/stats/top-producto", response_model=schemas.ProductoMasVendido)
+def top_producto(inicio: date, fin: date, db: Session = Depends(get_db)):
+    return VentasService.producto_mas_vendido(db, inicio, fin)
