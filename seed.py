@@ -1,85 +1,115 @@
 """
-Script de seed para demo — genera datos de prueba en la base de datos.
-Correr una sola vez: python seed.py
+Script de seed para demo — resetea la BD y genera un mes completo de datos.
+Uso: python seed.py
 """
 import random
 import datetime
-from faker import Faker
 from app.database import SessionLocal, engine
 from app import models
 
-fake = Faker("es_AR")
+# Resetear y recrear tablas
+print("Reseteando base de datos...")
+models.Base.metadata.drop_all(bind=engine)
 models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
-# ── Productos típicos de almacén de barrio ────────────────────────────────────
+# ── Productos con código de barras ────────────────────────────────────────────
 PRODUCTOS = [
-    ("Yerba Mate Taragüi 500g",     850.00,  "Infusiones",   45),
-    ("Yerba Mate Rosamonte 1kg",   1350.00,  "Infusiones",   30),
-    ("Aceite Girasol Natura 1.5L", 1200.00,  "Aceites",      25),
-    ("Aceite de Oliva Cocinero 500ml", 980.00, "Aceites",    15),
-    ("Fideos Macarrón Don Vicente 500g", 420.00, "Pastas",   60),
-    ("Fideos Tallarín Lucchetti 500g",  450.00, "Pastas",    40),
-    ("Arroz Gallo 1kg",             680.00,  "Granos",       50),
-    ("Harina 000 Pureza 1kg",       530.00,  "Harinas",      35),
-    ("Harina 0000 Canuelas 1kg",    560.00,  "Harinas",      30),
-    ("Azúcar Ledesma 1kg",          620.00,  "Almacén",      55),
-    ("Sal Fina La Panera 500g",     280.00,  "Almacén",      70),
-    ("Tomate Triturado Arcor 520g", 490.00,  "Conservas",    40),
-    ("Arvejas Arcor 300g",          380.00,  "Conservas",    35),
-    ("Atún al Natural Coto 170g",   550.00,  "Conservas",    25),
-    ("Galletitas Oreo 120g",        450.00,  "Golosinas",    60),
-    ("Galletitas Bagley Surtido 250g", 390.00, "Golosinas",  45),
-    ("Dulce de Leche La Serenísima 400g", 750.00, "Lácteos", 20),
-    ("Leche Entera La Serenísima 1L",   430.00, "Lácteos",   30),
-    ("Jabón en Polvo Skip 500g",    980.00,  "Limpieza",     20),
-    ("Lavandina Ayudín 1L",         380.00,  "Limpieza",     25),
+    ("Yerba Mate Taragüi 500g",           850.00,  "Infusiones",  45, "7790580000010"),
+    ("Yerba Mate Rosamonte 1kg",          1350.00,  "Infusiones",  30, "7790580000027"),
+    ("Aceite Girasol Natura 1.5L",        1200.00,  "Aceites",     25, "7790580000034"),
+    ("Aceite de Oliva Cocinero 500ml",     980.00,  "Aceites",     15, "7790580000041"),
+    ("Fideos Macarrón Don Vicente 500g",   420.00,  "Pastas",      60, "7790580000058"),
+    ("Fideos Tallarín Lucchetti 500g",     450.00,  "Pastas",      40, "7790580000065"),
+    ("Arroz Gallo 1kg",                    680.00,  "Granos",      50, "7790580000072"),
+    ("Harina 000 Pureza 1kg",              530.00,  "Harinas",     35, "7790580000089"),
+    ("Harina 0000 Canuelas 1kg",           560.00,  "Harinas",     30, "7790580000096"),
+    ("Azúcar Ledesma 1kg",                 620.00,  "Almacén",     55, "7790580000102"),
+    ("Sal Fina La Panera 500g",            280.00,  "Almacén",     70, "7790580000119"),
+    ("Tomate Triturado Arcor 520g",        490.00,  "Conservas",   40, "7790580000126"),
+    ("Arvejas Arcor 300g",                 380.00,  "Conservas",   35, "7790580000133"),
+    ("Atún al Natural Coto 170g",          550.00,  "Conservas",   25, "7790580000140"),
+    ("Galletitas Oreo 120g",               450.00,  "Golosinas",   60, "7790580000157"),
+    ("Galletitas Bagley Surtido 250g",     390.00,  "Golosinas",   45, "7790580000164"),
+    ("Dulce de Leche La Serenísima 400g",  750.00,  "Lácteos",     20, "7790580000171"),
+    ("Leche Entera La Serenísima 1L",      430.00,  "Lácteos",     30, "7790580000188"),
+    ("Jabón en Polvo Skip 500g",           980.00,  "Limpieza",    20, "7790580000195"),
+    ("Lavandina Ayudín 1L",                380.00,  "Limpieza",    25, "7790580000201"),
 ]
 
 print("Cargando productos...")
 productos_db = []
-for nombre, precio, categoria, stock in PRODUCTOS:
-    p = models.Producto(nombre=nombre, precio=precio, categoria=categoria, stock=stock)
+for nombre, precio, categoria, stock, barcode in PRODUCTOS:
+    p = models.Producto(
+        nombre=nombre, precio=precio, categoria=categoria,
+        stock=stock, codigo_barras=barcode
+    )
     db.add(p)
     productos_db.append(p)
 db.commit()
 for p in productos_db:
     db.refresh(p)
-print(f"  {len(productos_db)} productos creados.")
+print(f"  {len(productos_db)} productos con código de barras.")
 
-# ── Ventas de los últimos 30 días ─────────────────────────────────────────────
-print("Cargando ventas...")
+# ── Ventas del último mes (más realistas) ─────────────────────────────────────
+print("Cargando ventas del mes...")
 hoy = datetime.date.today()
-metodos = ["efectivo", "efectivo", "efectivo", "débito", "transferencia"]
+metodos = ["efectivo", "efectivo", "efectivo", "efectivo", "débito", "transferencia"]
 
-for _ in range(60):
-    dias_atras = random.randint(0, 30)
-    fecha = datetime.datetime.combine(
-        hoy - datetime.timedelta(days=dias_atras),
-        datetime.time(random.randint(8, 21), random.randint(0, 59))
-    )
-    producto = random.choice(productos_db)
-    cantidad = random.randint(1, 4)
-    total = float(producto.precio) * cantidad
+# Productos más populares (se venden más seguido)
+populares = productos_db[:10]
+resto = productos_db[10:]
 
-    venta = models.Venta(
-        fecha_hora=fecha,
-        total=total,
-        metodo_pago=random.choice(metodos)
-    )
-    db.add(venta)
-    db.flush()
+total_ventas = 0
+for dias_atras in range(30, -1, -1):
+    fecha_dia = hoy - datetime.timedelta(days=dias_atras)
+    dia_semana = fecha_dia.weekday()  # 0=lunes, 6=domingo
 
-    detalle = models.DetalleVenta(
-        venta_id=venta.id,
-        producto_id=producto.id,
-        cantidad=cantidad,
-        precio_unitario=producto.precio
-    )
-    db.add(detalle)
+    # Más ventas los viernes (4), sábados (5) y domingos (6)
+    if dia_semana in (4, 5, 6):
+        cantidad_ventas_dia = random.randint(12, 22)
+    elif dia_semana in (0, 1):
+        cantidad_ventas_dia = random.randint(5, 10)
+    else:
+        cantidad_ventas_dia = random.randint(7, 14)
+
+    for _ in range(cantidad_ventas_dia):
+        hora = datetime.time(random.randint(8, 21), random.randint(0, 59))
+        fecha_hora = datetime.datetime.combine(fecha_dia, hora)
+
+        # Carrito de 1 a 3 productos
+        n_items = random.choices([1, 2, 3], weights=[60, 30, 10])[0]
+        items_pool = random.choices(populares, k=n_items) if random.random() < 0.7 else random.choices(productos_db, k=n_items)
+
+        # Agrupar items por producto (evitar duplicados en el mismo carrito)
+        carrito = {}
+        for prod in items_pool:
+            if prod.id in carrito:
+                carrito[prod.id]["cantidad"] += 1
+            else:
+                carrito[prod.id] = {"producto": prod, "cantidad": 1}
+
+        total = sum(float(v["producto"].precio) * v["cantidad"] for v in carrito.values())
+
+        venta = models.Venta(
+            fecha_hora=fecha_hora,
+            total=total,
+            metodo_pago=random.choice(metodos)
+        )
+        db.add(venta)
+        db.flush()
+
+        for item in carrito.values():
+            db.add(models.DetalleVenta(
+                venta_id=venta.id,
+                producto_id=item["producto"].id,
+                cantidad=item["cantidad"],
+                precio_unitario=item["producto"].precio
+            ))
+        total_ventas += 1
 
 db.commit()
-print("  60 ventas creadas.")
+print(f"  {total_ventas} ventas generadas con variación por día de semana.")
 
 # ── Deudores con historial de fiados ─────────────────────────────────────────
 print("Cargando deudores...")
@@ -87,7 +117,7 @@ DEUDORES = [
     ("Marcelo Ríos",    "1134567890"),
     ("Ana González",    "1156789012"),
     ("Roberto Fuentes", None),
-    ("Claudia Peralta",  "1178901234"),
+    ("Claudia Peralta", "1178901234"),
     ("Diego Mamani",    "1190123456"),
 ]
 
@@ -96,44 +126,53 @@ for nombre, tel in DEUDORES:
     db.add(deudor)
     db.flush()
 
-    # Entre 2 y 5 cargos
-    for _ in range(random.randint(2, 5)):
-        dias = random.randint(1, 20)
-        producto = random.choice(productos_db)
+    acumulado = 0.0
+    for _ in range(random.randint(3, 6)):
+        dias = random.randint(2, 25)
+        prod = random.choice(productos_db)
+        monto = round(float(prod.precio) * random.randint(1, 3), 2)
+        acumulado += monto
         db.add(models.MovimientoFiado(
-            deudor_id=deudor.id,
-            tipo="cargo",
-            monto=round(float(producto.precio) * random.randint(1, 3), 2),
-            descripcion=producto.nombre,
+            deudor_id=deudor.id, tipo="cargo", monto=monto,
+            descripcion=prod.nombre,
             fecha=datetime.datetime.now() - datetime.timedelta(days=dias)
         ))
 
-    # Un pago parcial
-    deuda_aprox = float(producto.precio) * random.randint(1, 2)
-    pago = round(deuda_aprox * random.uniform(0.3, 0.6), 2)
+    # Pago parcial que no cubre toda la deuda
+    pago = round(acumulado * random.uniform(0.2, 0.5), 2)
     db.add(models.MovimientoFiado(
-        deudor_id=deudor.id,
-        tipo="pago",
-        monto=pago,
+        deudor_id=deudor.id, tipo="pago", monto=pago,
         descripcion="Pago parcial",
-        fecha=datetime.datetime.now() - datetime.timedelta(days=random.randint(0, 3))
+        fecha=datetime.datetime.now() - datetime.timedelta(days=random.randint(0, 5))
     ))
 
 db.commit()
-print(f"  {len(DEUDORES)} deudores creados.")
+print(f"  {len(DEUDORES)} deudores con historial.")
 
-# ── Arqueo de caja de hoy ─────────────────────────────────────────────────────
-print("Creando arqueo de hoy...")
-arqueo_existente = db.query(models.ArqueoCaja).filter(
-    models.ArqueoCaja.fecha == hoy
-).first()
+# ── Arqueos de los últimos 7 días (cerrados) + hoy abierto ───────────────────
+print("Cargando arqueos...")
+for i in range(7, 0, -1):
+    fecha = hoy - datetime.timedelta(days=i)
+    apertura = random.uniform(10000, 20000)
+    ventas_dia = db.execute(
+        __import__("sqlalchemy").text(
+            "SELECT COALESCE(SUM(total),0) FROM ventas WHERE DATE(fecha_hora)=:f"
+        ), {"f": fecha}
+    ).scalar()
+    cierre_real = apertura + float(ventas_dia) + random.uniform(-500, 500)
+    diferencia = cierre_real - (apertura + float(ventas_dia))
+    db.add(models.ArqueoCaja(
+        fecha=fecha,
+        monto_apertura=round(apertura, 2),
+        monto_cierre=round(cierre_real, 2),
+        total_ventas=round(float(ventas_dia), 2),
+        diferencia=round(diferencia, 2),
+        estado="cerrado"
+    ))
 
-if not arqueo_existente:
-    db.add(models.ArqueoCaja(fecha=hoy, monto_apertura=15000.00, estado="abierto"))
-    db.commit()
-    print("  Arqueo abierto con $15.000 de apertura.")
-else:
-    print("  Ya existe un arqueo para hoy, se omite.")
+db.add(models.ArqueoCaja(fecha=hoy, monto_apertura=15000.00, estado="abierto"))
+db.commit()
+print("  7 arqueos cerrados + caja de hoy abierta.")
 
 db.close()
-print("\n✓ Seed completado. Levantá el servidor y probá en http://localhost:8000/docs")
+print("\n✓ Seed completado. Levantá el servidor y probá en http://localhost:5173")

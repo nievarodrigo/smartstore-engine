@@ -9,6 +9,7 @@ class ProductoBase(BaseModel):
     precio: float
     stock: int
     categoria: Optional[str] = None
+    codigo_barras: Optional[str] = None
 
 class ProductoCreate(ProductoBase):
     pass
@@ -18,6 +19,7 @@ class ProductoUpdate(BaseModel):
     precio: Optional[float] = None
     stock: Optional[int] = None
     categoria: Optional[str] = None
+    codigo_barras: Optional[str] = None
 
 class ProductoRead(ProductoBase):
     id: int
@@ -42,10 +44,15 @@ class DetalleRead(BaseModel):
     class Config:
         from_attributes = True
 
-class VentaCreate(BaseModel):
+class ItemVenta(BaseModel):
     producto_id: int
     cantidad: int
+
+class VentaCreate(BaseModel):
+    items: List[ItemVenta]
     pago_con: float
+    metodo_pago: str = "efectivo"
+    deudor_id: Optional[int] = None
 
 class VentaRead(BaseModel):
     id: int

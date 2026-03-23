@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import {
-  getProductos, crearProducto, actualizarProducto, eliminarProducto,
-} from "../api";
+import { getProductos, crearProducto, actualizarProducto, eliminarProducto } from "../api";
 
-const VACIO = { nombre: "", precio: "", stock: "", categoria: "" };
+const VACIO = { nombre: "", precio: "", stock: "", categoria: "", codigo_barras: "" };
 
 export default function Productos() {
   const [productos, setProductos] = useState([]);
@@ -19,14 +17,26 @@ export default function Productos() {
   const abrirNuevo = () => { setEditando(null); setForm(VACIO); setError(""); setModal(true); };
   const abrirEditar = (p) => {
     setEditando(p);
-    setForm({ nombre: p.nombre, precio: p.precio, stock: p.stock, categoria: p.categoria ?? "" });
+    setForm({
+      nombre: p.nombre,
+      precio: p.precio,
+      stock: p.stock,
+      categoria: p.categoria ?? "",
+      codigo_barras: p.codigo_barras ?? "",
+    });
     setError("");
     setModal(true);
   };
 
   const guardar = async () => {
-    if (!form.nombre || !form.precio || form.stock === "") return setError("Completá todos los campos obligatorios");
-    const payload = { nombre: form.nombre, precio: parseFloat(form.precio), stock: parseInt(form.stock), categoria: form.categoria || null };
+    if (!form.nombre || !form.precio || form.stock === "") return setError("Completá nombre, precio y stock");
+    const payload = {
+      nombre: form.nombre,
+      precio: parseFloat(form.precio),
+      stock: parseInt(form.stock),
+      categoria: form.categoria || null,
+      codigo_barras: form.codigo_barras || null,
+    };
     try {
       editando ? await actualizarProducto(editando.id, payload) : await crearProducto(payload);
       setModal(false);
@@ -43,7 +53,8 @@ export default function Productos() {
   };
 
   const filtrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+    (p.codigo_barras ?? "").includes(busqueda)
   );
 
   const $ = (n) => `$${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
@@ -52,18 +63,15 @@ export default function Productos() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-slate-800">Productos</h2>
-        <button
-          onClick={abrirNuevo}
-          className="bg-slate-700 text-white px-4 py-2 rounded text-sm hover:bg-slate-800"
-        >
+        <button onClick={abrirNuevo} className="bg-slate-700 text-white px-4 py-2 rounded text-sm hover:bg-slate-800">
           + Nuevo producto
         </button>
       </div>
 
       <div className="mb-4">
         <input
-          className="border border-slate-300 rounded px-3 py-2 text-sm w-72"
-          placeholder="Buscar por nombre..."
+          className="border border-slate-300 rounded px-3 py-2 text-sm w-80"
+          placeholder="Buscar por nombre o código de barras..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
@@ -74,6 +82,7 @@ export default function Productos() {
           <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
             <tr>
               <th className="px-5 py-3 text-left">Nombre</th>
+              <th className="px-5 py-3 text-left">Cód. Barras</th>
               <th className="px-5 py-3 text-left">Categoría</th>
               <th className="px-5 py-3 text-right">Precio</th>
               <th className="px-5 py-3 text-right">Stock</th>
@@ -82,17 +91,16 @@ export default function Productos() {
           </thead>
           <tbody>
             {filtrados.length === 0 && (
-              <tr><td colSpan={5} className="px-5 py-8 text-center text-slate-400">Sin productos</td></tr>
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">Sin productos</td></tr>
             )}
             {filtrados.map((p) => (
               <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-5 py-3 font-medium">{p.nombre}</td>
+                <td className="px-5 py-3 font-mono text-slate-500 text-xs">{p.codigo_barras ?? "—"}</td>
                 <td className="px-5 py-3 text-slate-500">{p.categoria ?? "—"}</td>
                 <td className="px-5 py-3 text-right">{$(p.precio)}</td>
                 <td className="px-5 py-3 text-right">
-                  <span className={p.stock < 10 ? "text-red-500 font-semibold" : ""}>
-                    {p.stock} {p.stock < 10 && "⚠️"}
-                  </span>
+                  <span className={p.stock < 10 ? "text-red-500 font-semibold" : ""}>{p.stock} {p.stock < 10 && "⚠️"}</span>
                 </td>
                 <td className="px-5 py-3 text-right space-x-2">
                   <button onClick={() => abrirEditar(p)} className="text-blue-600 hover:underline text-xs">Editar</button>
@@ -112,6 +120,10 @@ export default function Productos() {
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Nombre *</label>
                 <input className="w-full border border-slate-300 rounded px-3 py-2 text-sm" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Código de Barras</label>
+                <input className="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono" placeholder="Ej: 7790001000010" value={form.codigo_barras} onChange={(e) => setForm({ ...form, codigo_barras: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

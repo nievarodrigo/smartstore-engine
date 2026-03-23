@@ -14,6 +14,7 @@ class Producto(Base):
     precio = Column(Numeric(10, 2), nullable=False)
     stock = Column(Integer, default=0)
     categoria = Column(String(50))
+    codigo_barras = Column(String(50), unique=True, nullable=True, index=True)
 
     detalles = relationship("DetalleVenta", back_populates="producto")
 

@@ -18,6 +18,14 @@ def buscar_producto(termino: str, db: Session = Depends(get_db)):
     return ProductosService.buscar_productos(db, termino)
 
 
+@router.get("/barcode/{codigo}", response_model=schemas.ProductoRead)
+def buscar_por_barcode(codigo: str, db: Session = Depends(get_db)):
+    producto = db.query(models.Producto).filter(models.Producto.codigo_barras == codigo).first()
+    if not producto:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    return producto
+
+
 @router.get("/reporte-critico", response_model=List[schemas.ProductoRead])
 def analizar_stock(db: Session = Depends(get_db)):
     return db.query(models.Producto).filter(models.Producto.stock < 10).all()
