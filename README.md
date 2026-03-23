@@ -42,6 +42,16 @@ uvicorn app.main:app --reload
 La API queda disponible en `http://localhost:8000`.
 Documentación interactiva: `http://localhost:8000/docs`
 
+## Datos de demo
+
+Para cargar datos de prueba (productos, ventas, deudores y arqueo):
+
+```bash
+python seed.py
+```
+
+Genera 20 productos de almacén, 60 ventas de los últimos 30 días, 5 deudores con historial de fiados y el arqueo del día. Se puede correr una sola vez — los datos quedan guardados en la BD.
+
 ## Endpoints principales
 
 ### Productos
