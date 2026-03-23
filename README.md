@@ -35,12 +35,17 @@ pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con tus credenciales de MySQL
 
-# 4. Levantar el servidor
+# 4. Levantar el backend
 uvicorn app.main:app --reload
+
+# 5. Levantar el frontend (en otra terminal)
+cd frontend
+npm install
+npm run dev
 ```
 
-La API queda disponible en `http://localhost:8000`.
-Documentación interactiva: `http://localhost:8000/docs`
+- Backend: `http://localhost:8000` — docs en `/docs`
+- Frontend: `http://localhost:5173`
 
 ## Datos de demo
 
