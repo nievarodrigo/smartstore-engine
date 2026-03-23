@@ -1,7 +1,140 @@
 import { useState, useEffect, useRef } from "react";
-import { buscarPorBarcode, registrarVenta, getDeudores, getVentas } from "../api";
+import { buscarPorBarcode, registrarVenta, getDeudores, getVentas, crearDeudor } from "../api";
 
 const $ = (n) => `$${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
+
+function BuscadorDeudor({ deudores, deudorId, onSelect, onNuevoCreado }) {
+  const [texto, setTexto] = useState("");
+  const [abierto, setAbierto] = useState(false);
+  const [modalNuevo, setModalNuevo] = useState(false);
+  const [nuevoForm, setNuevoForm] = useState({ nombre: "", telefono: "" });
+  const [guardando, setGuardando] = useState(false);
+  const ref = useRef(null);
+
+  // Sincronizar texto con deudor seleccionado
+  useEffect(() => {
+    if (!deudorId) { setTexto(""); return; }
+    const d = deudores.find((d) => d.id === parseInt(deudorId));
+    if (d) setTexto(d.nombre);
+  }, [deudorId, deudores]);
+
+  // Cerrar al hacer click afuera
+  useEffect(() => {
+    const handler = (e) => { if (!ref.current?.contains(e.target)) setAbierto(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtrados = deudores.filter((d) =>
+    d.nombre.toLowerCase().includes(texto.toLowerCase())
+  );
+
+  const seleccionar = (d) => {
+    onSelect(String(d.id));
+    setTexto(d.nombre);
+    setAbierto(false);
+  };
+
+  const limpiar = () => { onSelect(""); setTexto(""); setAbierto(false); };
+
+  const guardarNuevo = async () => {
+    if (!nuevoForm.nombre.trim()) return;
+    setGuardando(true);
+    try {
+      const { data } = await crearDeudor({ nombre: nuevoForm.nombre, telefono: nuevoForm.telefono || null });
+      await onNuevoCreado();
+      onSelect(String(data.id));
+      setTexto(data.nombre);
+      setModalNuevo(false);
+      setNuevoForm({ nombre: "", telefono: "" });
+      setAbierto(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            value={texto}
+            onChange={(e) => { setTexto(e.target.value); setAbierto(true); onSelect(""); }}
+            onFocus={() => setAbierto(true)}
+            placeholder="Buscar deudor..."
+            className="w-full border-2 border-slate-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-orange-400"
+          />
+          {texto && (
+            <button onClick={limpiar} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg">✕</button>
+          )}
+        </div>
+        <button
+          onClick={() => setModalNuevo(true)}
+          className="bg-orange-500 text-white px-4 py-3 rounded-lg text-base font-bold hover:bg-orange-600 whitespace-nowrap"
+        >
+          + Nuevo
+        </button>
+      </div>
+
+      {/* Dropdown autocompletado */}
+      {abierto && filtrados.length > 0 && (
+        <ul className="absolute z-40 w-full bg-white border-2 border-slate-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+          {filtrados.map((d) => (
+            <li
+              key={d.id}
+              onClick={() => seleccionar(d)}
+              className="px-4 py-3 cursor-pointer hover:bg-orange-50 flex justify-between items-center"
+            >
+              <span className="text-lg font-medium">{d.nombre}</span>
+              {d.total_adeudado > 0 && (
+                <span className="text-sm text-red-500 font-semibold">Debe {$(d.total_adeudado)}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {abierto && texto && filtrados.length === 0 && (
+        <div className="absolute z-40 w-full bg-white border-2 border-slate-200 rounded-lg shadow-xl mt-1 px-4 py-3 text-slate-400 text-base">
+          Sin resultados — usá "+ Nuevo" para crear
+        </div>
+      )}
+
+      {/* Modal nuevo deudor */}
+      {modalNuevo && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="font-black text-xl text-slate-800 mb-4">Nuevo deudor</h3>
+            <div className="space-y-3">
+              <input
+                autoFocus
+                className="w-full border-2 border-slate-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-orange-400"
+                placeholder="Nombre *"
+                value={nuevoForm.nombre}
+                onChange={(e) => setNuevoForm({ ...nuevoForm, nombre: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && guardarNuevo()}
+              />
+              <input
+                className="w-full border-2 border-slate-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-orange-400"
+                placeholder="Teléfono (opcional)"
+                value={nuevoForm.telefono}
+                onChange={(e) => setNuevoForm({ ...nuevoForm, telefono: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && guardarNuevo()}
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setModalNuevo(false)} className="flex-1 py-3 rounded-lg border-2 border-slate-200 text-slate-600 font-bold text-lg hover:bg-slate-50">
+                Cancelar
+              </button>
+              <button onClick={guardarNuevo} disabled={guardando || !nuevoForm.nombre.trim()} className="flex-1 py-3 rounded-lg bg-orange-500 text-white font-bold text-lg hover:bg-orange-600 disabled:opacity-40">
+                {guardando ? "..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PuntoVenta() {
   const [barcode, setBarcode] = useState("");
@@ -19,27 +152,20 @@ export default function PuntoVenta() {
   const [detalleAbierto, setDetalleAbierto] = useState(null);
   const barcodeRef = useRef(null);
 
-  // Persiste carrito en localStorage
-  useEffect(() => {
-    localStorage.setItem("carrito", JSON.stringify(carrito));
-  }, [carrito]);
+  useEffect(() => { localStorage.setItem("carrito", JSON.stringify(carrito)); }, [carrito]);
 
-  // Auto-dismiss del popup de éxito
   useEffect(() => {
     if (!resultado) return;
-    const t = setTimeout(() => {
-      setResultado(null);
-      barcodeRef.current?.focus();
-    }, 2500);
+    const t = setTimeout(() => { setResultado(null); barcodeRef.current?.focus(); }, 2500);
     return () => clearTimeout(t);
   }, [resultado]);
 
-  const cargarHistorial = () =>
-    getVentas().then((r) => setHistorial(r.data.slice(0, 8))).catch(() => {});
+  const cargarDeudores = () => getDeudores().then((r) => setDeudores(r.data)).catch(() => {});
+  const cargarHistorial = () => getVentas().then((r) => setHistorial(r.data.slice(0, 8))).catch(() => {});
 
   useEffect(() => {
     barcodeRef.current?.focus();
-    getDeudores().then((r) => setDeudores(r.data)).catch(() => {});
+    cargarDeudores();
     cargarHistorial();
   }, []);
 
@@ -99,9 +225,8 @@ export default function PuntoVenta() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Popup de éxito */}
       {resultado && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 text-xl font-bold animate-bounce">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 text-xl font-bold">
           ✅ Venta #{resultado.venta_id} — {$(resultado.total)}
           {resultado.vuelto > 0 && <span className="font-normal text-lg"> · Vuelto: {$(resultado.vuelto)}</span>}
           {resultado.metodo_pago === "fiado" && <span className="font-normal text-lg"> · Fiado</span>}
@@ -109,7 +234,6 @@ export default function PuntoVenta() {
       )}
 
       <div className="flex gap-6">
-        {/* Columna izquierda: scanner + carrito */}
         <div className="flex-1 flex flex-col gap-4">
           <h2 className="text-3xl font-black text-slate-800">Punto de Venta</h2>
 
@@ -174,7 +298,6 @@ export default function PuntoVenta() {
           </div>
         </div>
 
-        {/* Columna derecha: pago */}
         <div className="w-80 flex flex-col gap-4">
           <div className="bg-white rounded-xl border-2 border-slate-200 p-5 flex flex-col gap-4">
             <div className="bg-slate-50 rounded-xl p-4 text-center">
@@ -201,11 +324,12 @@ export default function PuntoVenta() {
             {metodo === "fiado" ? (
               <div>
                 <p className="text-base font-bold text-slate-600 mb-2">Deudor</p>
-                <select value={deudorId} onChange={(e) => setDeudorId(e.target.value)}
-                  className="w-full border-2 border-slate-300 rounded-lg px-3 py-3 text-xl focus:outline-none focus:border-orange-400">
-                  <option value="">Seleccioná...</option>
-                  {deudores.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                </select>
+                <BuscadorDeudor
+                  deudores={deudores}
+                  deudorId={deudorId}
+                  onSelect={setDeudorId}
+                  onNuevoCreado={cargarDeudores}
+                />
               </div>
             ) : (
               <div>
@@ -232,7 +356,7 @@ export default function PuntoVenta() {
         </div>
       </div>
 
-      {/* Historial de últimas ventas */}
+      {/* Historial */}
       <div className="bg-white rounded-xl border-2 border-slate-200">
         <div className="px-5 py-4 border-b border-slate-100">
           <h3 className="text-lg font-bold text-slate-700">Últimas ventas</h3>
@@ -261,10 +385,7 @@ export default function PuntoVenta() {
                     <td className="px-5 py-3 capitalize">{v.metodo_pago}</td>
                     <td className="px-5 py-3 text-right font-bold text-lg">{$(v.total)}</td>
                     <td className="px-5 py-3 text-center">
-                      <button
-                        onClick={() => setDetalleAbierto(detalleAbierto === v.id ? null : v.id)}
-                        className="text-blue-600 hover:underline text-xs font-medium"
-                      >
+                      <button onClick={() => setDetalleAbierto(detalleAbierto === v.id ? null : v.id)} className="text-blue-600 hover:underline text-xs font-medium">
                         {detalleAbierto === v.id ? "Ocultar" : "Ver detalle"}
                       </button>
                     </td>
