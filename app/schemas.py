@@ -1,8 +1,9 @@
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, model_validator
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 
-# 1. Esquemas de Producto
+
+# ── Producto ──────────────────────────────────────────────
 class ProductoBase(BaseModel):
     nombre: str
     precio: float
@@ -12,7 +13,19 @@ class ProductoBase(BaseModel):
 class ProductoCreate(ProductoBase):
     pass
 
-# 2. Esquema de Detalle (Extrae el nombre del producto desde la relación de BD)
+class ProductoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    precio: Optional[float] = None
+    stock: Optional[int] = None
+    categoria: Optional[str] = None
+
+class ProductoRead(ProductoBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+
+# ── Ventas ────────────────────────────────────────────────
 class DetalleRead(BaseModel):
     producto_id: int
     cantidad: int
@@ -22,16 +35,13 @@ class DetalleRead(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def get_nombre_producto(cls, data):
-        # Si la data es un objeto de SQLAlchemy (tiene el atributo 'producto')
         if hasattr(data, "producto") and data.producto:
-            # Seteamos el nombre directamente desde la relación del modelo
             data.nombre_producto = data.producto.nombre
         return data
 
     class Config:
         from_attributes = True
 
-# 3. Esquemas de Venta
 class VentaCreate(BaseModel):
     producto_id: int
     cantidad: int
@@ -42,13 +52,11 @@ class VentaRead(BaseModel):
     fecha_hora: datetime
     total: float
     metodo_pago: str
-    # IMPORTANTE: Esto vincula la lista de detalles a la venta
     detalles: List[DetalleRead] = []
 
     class Config:
         from_attributes = True
 
-# 4. Esquemas de Estadísticas y KPIs
 class EstadisticasVentas(BaseModel):
     total_recaudado: float
     cantidad_ventas: int
@@ -60,3 +68,53 @@ class RegistroGrafico(BaseModel):
 class ProductoMasVendido(BaseModel):
     producto_nombre: str
     cantidad_total: int
+
+
+# ── Fiados ────────────────────────────────────────────────
+class DeudorCreate(BaseModel):
+    nombre: str
+    telefono: Optional[str] = None
+
+class MovimientoCreate(BaseModel):
+    monto: float
+    descripcion: Optional[str] = None
+
+class MovimientoRead(BaseModel):
+    id: int
+    tipo: str
+    monto: float
+    descripcion: Optional[str] = None
+    fecha: datetime
+
+    class Config:
+        from_attributes = True
+
+class DeudorRead(BaseModel):
+    id: int
+    nombre: str
+    telefono: Optional[str] = None
+    total_adeudado: float
+    fecha_creacion: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Arqueo de caja ────────────────────────────────────────
+class AperturaCreate(BaseModel):
+    monto_apertura: float
+
+class CierreCreate(BaseModel):
+    monto_cierre: float
+
+class ArqueoRead(BaseModel):
+    id: int
+    fecha: date
+    monto_apertura: float
+    monto_cierre: Optional[float] = None
+    total_ventas: Optional[float] = None
+    diferencia: Optional[float] = None
+    estado: str
+
+    class Config:
+        from_attributes = True
